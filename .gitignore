@@ -40,4 +40,4 @@ videos/
 Paper2Code/outputs/
 
 # Local Colab transfer bundle
-surgformer_sar_rarp50_training_data.zip
+surgformer_sar_rarp50_training_data*.zip
