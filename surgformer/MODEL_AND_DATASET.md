@@ -161,9 +161,10 @@ The same geometric operation is applied to each image and its mask.
 ## Training behavior
 
 The branches are trained independently and sequentially: all coarse epochs,
-followed by all fine epochs. The base configuration uses 100 epochs per branch;
-the full-data Colab notebook starts at 10 because every epoch processes thousands
-of frames. Fusion is not part of the training loss.
+followed by all fine epochs. The full-data Colab notebook allows at most 10
+epochs per branch and stops a branch after three consecutive validation epochs
+without improvement. It restores that branch's best validation checkpoint
+before proceeding. Fusion is not part of the training loss.
 
 For each branch, the objective is:
 
@@ -218,10 +219,9 @@ held-out test frames. It reports:
 - warnings for untrainable classes and classes appearing in fewer than ten test
   frames.
 
-The training entry point evaluates the final in-memory weights; it does not
-reload the `best` checkpoints first. `video_inference.py`, in contrast, loads
-`coarse_best.pth` and `fine_best.pth` by default and renders colored masks over
-the held-out video.
+The training entry point restores each branch's `best` checkpoint before final
+evaluation. `video_inference.py` also loads `coarse_best.pth` and
+`fine_best.pth` by default and renders colored masks over the held-out video.
 
 ## What this adaptation does not claim
 

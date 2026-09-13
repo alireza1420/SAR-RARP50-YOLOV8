@@ -4,6 +4,7 @@ training:
   learning_rate: 5.0e-6
   batch_size: 4
   epochs: 100
+  early_stopping_patience: 3  # Stop a branch after 3 validation epochs without improvement.
   weight_decay: 1.0e-4
   optimizer: "adam"
   checkpoint_dir: "results/checkpoints"

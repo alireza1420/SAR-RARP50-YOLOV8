@@ -177,6 +177,20 @@ def main() -> None:
             "fine_best.pth", "fine_last.pth",
         }
 
+        early_config = deepcopy(train_config)
+        early_config["training"]["epochs"] = 5
+        early_config["training"]["early_stopping_patience"] = 2
+        early_config["training"]["checkpoint_dir"] = str(Path(directory) / "early")
+        early = Trainer(TinyBranches(), batches, batches, early_config, task)
+        with patch.object(
+            early, "_run_epoch", side_effect=[1.0, 0.5, 1.0, 0.6, 1.0, 0.7]
+        ) as run_epoch:
+            early._train_branch("coarse")
+        assert run_epoch.call_count == 6
+        assert torch.load(
+            Path(directory) / "early" / "coarse_last.pth", weights_only=True
+        )["epoch"] == 3
+
     with TemporaryDirectory() as directory:
         input_path = str(Path(directory, "input.avi"))
         output_path = str(Path(directory, "output.mp4"))

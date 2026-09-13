@@ -25,6 +25,8 @@ class Trainer:
             raise ValueError("Surg-SegFormer specifies Adam")
         if training["scheduler"]["name"].lower() != "cyclic":
             raise ValueError("Surg-SegFormer specifies a cyclic LR scheduler")
+        if training.get("early_stopping_patience", 0) < 0:
+            raise ValueError("early_stopping_patience must be non-negative")
         self.training = training
         self.loss_config = config["loss"]
         self.cross_entropy = nn.CrossEntropyLoss(
@@ -137,17 +139,33 @@ class Trainer:
         )
 
         best_validation = float("inf")
+        stale_epochs = 0
+        patience = self.training.get("early_stopping_patience", 0)
         for epoch in range(1, self.training["epochs"] + 1):
             train_loss = self._run_epoch(self.train_data, branch, optimizer, scheduler)
             validation_loss = self._run_epoch(self.val_data, branch)
             self._save(branch, "last", optimizer, scheduler, epoch)
             if validation_loss < best_validation:
                 best_validation = validation_loss
+                stale_epochs = 0
                 self._save(branch, "best", optimizer, scheduler, epoch)
+            else:
+                stale_epochs += 1
             print(
                 f"{branch} epoch {epoch}/{self.training['epochs']}: "
                 f"train={train_loss:.6f}, val={validation_loss:.6f}"
             )
+            if patience and stale_epochs >= patience:
+                print(f"{branch} early stopping at epoch {epoch}; best val={best_validation:.6f}")
+                break
+
+        checkpoint = torch.load(
+            os.path.join(self.training["checkpoint_dir"], f"{branch}_best.pth"),
+            map_location=self.device,
+            weights_only=True,
+        )
+        for module_name, state in checkpoint["branch_state"].items():
+            getattr(self.model, module_name).load_state_dict(state)
 
     def train(self) -> None:
         """Train branch-specific losses; confidence fusion is never in this path."""
