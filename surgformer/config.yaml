@@ -1,0 +1,67 @@
+## Paper-reported values are unmarked; all reconstruction choices are labelled ASSUMPTION.
+training:
+  seed: 42  # ASSUMPTION: the paper does not report a seed.
+  learning_rate: 5.0e-6
+  batch_size: 4
+  epochs: 100
+  weight_decay: 1.0e-4
+  optimizer: "adam"
+  checkpoint_dir: "results/checkpoints"
+  scheduler:
+    name: "cyclic"
+    max_learning_rate: 5.0e-5  # ASSUMPTION: the paper does not report CLR bounds.
+    step_size_up_epochs: 2  # ASSUMPTION: the paper does not report CLR cycle length.
+
+data:
+  active_task: "sar_rarp50"
+  # Feature 001's deterministic split: video_12 is test; raw videos stay read-only.
+  split_layout: "{root}/{kind}/{split}"
+  splits: {train: "train", val: "val", test: "test"}
+  image_size: [896, 512]  # [width, height], preserves the source aspect ratio.
+  crop_size: [784, 448]  # ASSUMPTION: aspect-preserving crop size.
+  normalization:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+  augmentation: {flip: true, rotation: true, crop: true}
+  tasks:
+    sar_rarp50:
+      root: "../notebooks/datasets/sar_rarp50"
+      masks_root: "../videos"
+      num_classes: 10
+      branches: ["coarse", "fine"]
+      class_groups:
+        coarse: [0, 1, 2, 3]
+        fine: [0, 4, 5, 6, 7, 8, 9]
+      untrainable_class_ids: [9]
+      label_map: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
+      class_names: ["background", "bipolar_forceps", "prograsp_forceps", "large_needle_driver", "vessel_sealer", "grasping_retractor", "monopolar_curved_scissors", "ultrasound_probe", "suction_instrument", "suture_needle"]
+
+loss:
+  ignore_index: 255
+  tversky:
+    alpha: 0.7  # Eq. 2 coefficient on FP; follows the formula, not conflicting prose.
+    beta: 0.3  # Eq. 2 coefficient on FN.
+  tversky_weight: 0.7  # ASSUMPTION: Eq. 4 gives no numerical combined-loss coefficient.
+
+model:
+  coarse: {variant: "B2", decoder: "stock"}
+  fine:
+    variant: "B5"
+    decoder:
+      projection_channels: 256  # ASSUMPTION: uniform width is not reported.
+      dense_layers: 4  # Figure 2 shows four blocks; internals are unspecified.
+      skip_topology: "dense_deep_to_shallow"  # ASSUMPTION from Figure 2.
+
+fusion:
+  method: "priority_weighted_conditional_OR"
+  background_class: 0
+  morphology:
+    operations: ["closing", "opening"]  # ASSUMPTION: operations are unnamed.
+    kernel_size: 3  # ASSUMPTION: morphology parameters are not reported.
+    iterations: 1
+
+video:
+  input: "../videos/video_12/video_left.avi"
+  output: "results/video_12_overlay.mp4"
+  overlay_alpha: 0.5
+  fps_window: 30

@@ -1,0 +1,43 @@
+# Generated dataset and results — never commit
+datasets/
+results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.tmp
+*.swp
+*.log
+
+#specs
+specs/
+
+#videos
+videos/
+# API keys
+.openai_key
+
+# Paper2Code generated output
+Paper2Code/outputs/
+
+# Local Colab transfer bundle
+surgformer_sar_rarp50_training_data.zip
