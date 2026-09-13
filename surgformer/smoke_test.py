@@ -36,12 +36,11 @@ def main() -> None:
     config = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
     task_config = config["data"]["tasks"]["sar_rarp50"]
     assert task_config["num_classes"] == 10
-    assert task_config["class_groups"] == {
-        "coarse": [0, 1, 2, 3],
-        "fine": [0, 4, 5, 6, 7, 8, 9],
-    }
+    groups = task_config["class_groups"]
+    assert set(groups["coarse"]) & set(groups["fine"]) == {0}
+    assert set(groups["coarse"]) | set(groups["fine"]) == set(range(10))
     train_loader, val_loader, test_loader = DatasetLoader(config).prepare_datasets()
-    assert [len(loader.dataset) for loader in (train_loader, val_loader, test_loader)] == [326, 81, 132]
+    assert all(len(loader.dataset) for loader in (train_loader, val_loader, test_loader))
     assert test_loader.dataset[0]["mask"].shape == (512, 896)
 
     decoder = DenseSkipDecoder([4, 8, 16, 32], 2, 3, 4, "dense_deep_to_shallow")

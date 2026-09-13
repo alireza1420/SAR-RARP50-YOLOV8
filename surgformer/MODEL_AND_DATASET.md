@@ -7,10 +7,10 @@ For every input pixel, it predicts one of ten labels: background or one of nine
 surgical instrument classes. It does not distinguish separate instances of the
 same instrument and does not use information from earlier or later video frames.
 
-The implementation adapts Surg-SegFormer's dual-branch idea to the local
-SAR-RARP50 split. A smaller SegFormer branch handles the more common foreground
-classes, while a larger branch focuses on rarer classes. Their predictions are
-combined only during inference.
+The implementation adapts Surg-SegFormer's dual-branch idea to SAR-RARP50. A
+smaller SegFormer branch handles the more common foreground classes, while a
+larger branch focuses on rarer classes. Their predictions are combined only
+during inference.
 
 ```mermaid
 flowchart LR
@@ -35,16 +35,16 @@ The coarse branch uses `nvidia/mit-b2` through
 visual features, while a new ten-class SegFormer decode head is initialized for
 SAR-RARP50.
 
-This branch is trained on:
+The base prototype configuration assigns this branch:
 
 - `0`: background
-- `1`: bipolar forceps
-- `2`: prograsp forceps
-- `3`: large needle driver
+- `1`: tool clasper
+- `2`: tool wrist
+- `3`: tool shaft
 
-Pixels belonging to classes 4-9 are mapped to background for the coarse branch's
-loss. The branch therefore learns to separate the three more common instrument
-classes from everything else.
+During a full-data Colab run, this list is replaced with the foreground classes
+occupying at least 1% of training pixels. Labels assigned to the other branch are
+mapped to background for this branch's loss.
 
 ### Fine branch
 
@@ -58,8 +58,10 @@ dense-skip decoder:
 4. Concatenates every earlier decoded feature into the next decoder layer.
 5. Fuses the four decoded outputs and produces ten-class logits.
 
-This branch is trained on background plus classes 4-9. Pixels belonging to
-classes 1-3 are mapped to background for its loss.
+The base prototype configuration trains this branch on background plus classes
+4-9. During a full-data Colab run, it instead receives the foreground classes
+below the 1% threshold. Labels assigned to the other branch are mapped to
+background for its loss.
 
 ### Why pretrained-model warnings appear
 
@@ -75,9 +77,16 @@ classifier weights as `UNEXPECTED` and the new segmentation decoder weights as
 
 ## SAR-RARP50 adaptation
 
-### Deterministic split
+### Full-data Colab split
 
-The prepared subset contains 539 annotated frames:
+The Colab notebook downloads all official archives: 12,998 annotated frames
+from operations 1-40 and 3,252 test frames from operations 41-50. It holds out
+four complete development operations for validation using seed 42, so frames
+from one operation never cross splits. Thus 36 development operations provide
+gradient updates, four provide validation, and the ten official test operations
+remain evaluation-only.
+
+The repository's small local prototype split remains available for quick checks:
 
 | Split | Frames | Source |
 | --- | ---: | --- |
@@ -85,8 +94,7 @@ The prepared subset contains 539 annotated frames:
 | Validation | 81 | Training videos, seeded split |
 | Test | 132 | Held-out `video_12` |
 
-Holding out all of `video_12` avoids placing frames from the same surgical video
-in both training and testing.
+Do not compare results from the 539-frame prototype with the full-data run.
 
 ### Image and mask pairing
 
@@ -112,27 +120,27 @@ Mask value `255` is reserved as the ignored label.
 
 ### Class grouping
 
-The branch split was derived from the training set. Classes 1-3 each exceed 1%
-of training pixels and are assigned to the coarse branch; classes 4-9 are
-assigned to the fine branch.
+The full-data notebook calculates class pixel shares from its 36-operation
+training split. Foreground classes occupying at least 1% of its labelled pixels
+go to the coarse branch; the remaining foreground classes go to the fine branch.
+Background is learned by both branches. This avoids carrying the prototype
+subset's frequency split into the full experiment.
 
 | ID | Class | Branch | Training status |
 | ---: | --- | --- | --- |
 | 0 | background | both | learnable |
-| 1 | bipolar forceps | coarse | learnable |
-| 2 | prograsp forceps | coarse | learnable |
-| 3 | large needle driver | coarse | learnable |
-| 4 | vessel sealer | fine | learnable |
-| 5 | grasping retractor | fine | learnable |
-| 6 | monopolar curved scissors | fine | learnable |
-| 7 | ultrasound probe | fine | learnable |
-| 8 | suction instrument | fine | learnable |
-| 9 | suture needle | fine | **not present in train/validation** |
+| 1 | tool clasper | data-derived | learnable if present in train |
+| 2 | tool wrist | data-derived | learnable if present in train |
+| 3 | tool shaft | data-derived | learnable if present in train |
+| 4 | suturing needle | data-derived | learnable if present in train |
+| 5 | thread | data-derived | learnable if present in train |
+| 6 | suction tool | data-derived | learnable if present in train |
+| 7 | needle holder | data-derived | learnable if present in train |
+| 8 | clamps | data-derived | learnable if present in train |
+| 9 | catheter | data-derived | learnable if present in train |
 
-Class 9 cannot be learned from this split because it has no training or
-validation examples. It remains in the ten-class output so test masks preserve
-their original label space. Evaluation marks it as `untrainable_by_split` and
-also reports a nine-learnable-class mIoU.
+Any class absent from the selected training operations remains in the ten-class
+output and is automatically marked `untrainable_by_split` during evaluation.
 
 ### Preprocessing and augmentation
 
@@ -152,8 +160,10 @@ The same geometric operation is applied to each image and its mask.
 
 ## Training behavior
 
-The branches are trained independently and sequentially: 100 coarse epochs,
-followed by 100 fine epochs. Fusion is not part of the training loss.
+The branches are trained independently and sequentially: all coarse epochs,
+followed by all fine epochs. The base configuration uses 100 epochs per branch;
+the full-data Colab notebook starts at 10 because every epoch processes thousands
+of frames. Fusion is not part of the training loss.
 
 For each branch, the objective is:
 
@@ -228,6 +238,7 @@ the held-out video.
 ## Relevant files
 
 - [`config.yaml`](config.yaml): task, classes, model variants, and hyperparameters
+- [`prepare_dataset.py`](prepare_dataset.py): full-video split and annotated-frame extraction
 - [`dataset_loader.py`](dataset_loader.py): frame-mask pairing and preprocessing
 - [`model.py`](model.py): coarse/fine branches and dense decoder
 - [`trainer.py`](trainer.py): branch targets, losses, optimization, and checkpoints

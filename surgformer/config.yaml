@@ -34,7 +34,7 @@ data:
         fine: [0, 4, 5, 6, 7, 8, 9]
       untrainable_class_ids: [9]
       label_map: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9}
-      class_names: ["background", "bipolar_forceps", "prograsp_forceps", "large_needle_driver", "vessel_sealer", "grasping_retractor", "monopolar_curved_scissors", "ultrasound_probe", "suction_instrument", "suture_needle"]
+      class_names: ["background", "tool_clasper", "tool_wrist", "tool_shaft", "suturing_needle", "thread", "suction_tool", "needle_holder", "clamps", "catheter"]
 
 loss:
   ignore_index: 255
